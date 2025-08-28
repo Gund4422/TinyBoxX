@@ -1,5 +1,5 @@
 # TinyBox-OS
-a OS i made in like, 1 day, it has a 724 line kernel
+a OS i made in like, 1 day, it has a **724 line kernel**
 # How to Compile?
 its meant to be compiled using NASM and TCC!
 
@@ -18,3 +18,9 @@ Run with: bochs -f bochsrc.txt
 Bochsrc.txt: floppya: 1_44=tinyboxos.img, status=inserted, boot: a, megs: 16, romimage: file=BIOS-bochs-latest, vgaromimage: file=VGABIOS-lgpl-latest, log: bochslog.txt
 # Why is the OS called "TinyBox?"
 Well.. its because its a Tiny OS running in Bochs (Box)! Creative, Right?
+# What Does It use?
+- **93% C** → kernel, shell, task scheduler, VGA driver, timer, syscalls  
+- **6% Assembly** → bootloader, kernel stub, low-level setup
+# My Note  
+Intiha's Note: Intiha's Note: THIS OS WAS MADE FROM SCRATCH.
+It serves as a template for people using TCC and NASM.
