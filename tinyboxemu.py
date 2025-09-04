@@ -1,4 +1,4 @@
-# tinyboxemu_pygame.py
+# tinyboxemu_pygame_clean.py
 import pygame, sys, time, threading
 
 # ----------------- Config -----------------
@@ -75,19 +75,6 @@ uptime_ticks = 0
 tasks = [{"id": i+1, "name": f"T{i+1}"} for i in range(5)]
 current_task_index = 0
 
-# ----------------- Task Scheduler -----------------
-def schedule():
-    global current_task_index
-    current_task_index = (current_task_index + 1) % len(tasks)
-    terminal_write(f"\nSwitching to task: {tasks[current_task_index]['name']}\n")
-
-# ----------------- Timer -----------------
-def timer_tick():
-    global uptime_ticks
-    uptime_ticks += 1
-    if uptime_ticks % 5 == 0:
-        terminal_write(f"\nTimer tick: {uptime_ticks}\n")
-
 # ----------------- Shell -----------------
 def shell_handle_char(c):
     global shell_input
@@ -129,12 +116,13 @@ def shell_handle_char(c):
         shell_input += c
         terminal_putchar(c)
 
-# ----------------- Background Tasks -----------------
+# ----------------- Background Tasks (silent) -----------------
 def background_loop():
+    global uptime_ticks, current_task_index
     while True:
-        schedule()
-        timer_tick()
-        time.sleep(1)
+        uptime_ticks += 1  # silent
+        current_task_index = (current_task_index + 1) % len(tasks)
+        time.sleep(1)  # 1 tick per second
 
 # ----------------- Main Loop -----------------
 def main_loop():
