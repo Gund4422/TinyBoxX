@@ -1,97 +1,160 @@
-# tinyboxemu.py
-import sys
+# tinyboxemu_pygame.py
+import pygame, sys, time, threading
 
-# ------------------ Configuration ------------------
-MEM_SIZE = 1024 * 1024  # 1 MB RAM
-BOOT_SECTOR = 0x7C00
-KERNEL_LOAD = 0x80000  # where the kernel gets loaded
-VGA_START = 0xB8000
+# ----------------- Config -----------------
 VGA_WIDTH = 80
 VGA_HEIGHT = 25
+CHAR_WIDTH = 10
+CHAR_HEIGHT = 18
+WINDOW_WIDTH = VGA_WIDTH * CHAR_WIDTH
+WINDOW_HEIGHT = VGA_HEIGHT * CHAR_HEIGHT
+FONT_SIZE = 16
 
-# ------------------ Memory ------------------
-memory = bytearray(MEM_SIZE)
+# ----------------- Initialize Pygame -----------------
+pygame.init()
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption("TinyBox-OS Emulator")
+font = pygame.font.SysFont("Courier", FONT_SIZE)
+clock = pygame.time.Clock()
 
-# Load floppy image
-if len(sys.argv) < 2:
-    print("Usage: python tinyboxemu.py tinyboxos.img")
-    sys.exit(1)
-
-with open(sys.argv[1], "rb") as f:
-    floppy = f.read()
-    memory[0:len(floppy)] = floppy
-
-# ------------------ VGA Text Mode ------------------
-vga_buffer = [" "] * (VGA_WIDTH * VGA_HEIGHT)
-
-def vga_write(offset, char):
-    if 0 <= offset < len(vga_buffer):
-        vga_buffer[offset] = chr(char)
-        render_vga()
+# ----------------- VGA Buffer -----------------
+vga_buffer = [[" "]*VGA_WIDTH for _ in range(VGA_HEIGHT)]
+vga_color = [[(255,255,255)]*VGA_WIDTH for _ in range(VGA_HEIGHT)]
+term_row, term_col = 0, 0
 
 def render_vga():
-    # Simple terminal render
-    print("\033[H")  # move cursor to top-left
+    screen.fill((0,0,0))
     for y in range(VGA_HEIGHT):
-        line = "".join(vga_buffer[y*VGA_WIDTH:(y+1)*VGA_WIDTH])
-        print(line)
-    print("-" * VGA_WIDTH)
+        for x in range(VGA_WIDTH):
+            char = vga_buffer[y][x]
+            color = vga_color[y][x]
+            text = font.render(char, True, color)
+            screen.blit(text, (x*CHAR_WIDTH, y*CHAR_HEIGHT))
+    pygame.display.flip()
 
-# ------------------ CPU Registers ------------------
-regs = {
-    "EIP": BOOT_SECTOR,
-    "AX": 0,
-    "BX": 0,
-    "CX": 0,
-    "DX": 0,
-    "DS": 0,
-    "ES": 0,
-    "SS": 0,
-    "SP": 0x7C00,
-    "FLAGS": 0,
-}
+def terminal_putchar(c):
+    global term_row, term_col
+    if c == "\n":
+        term_row += 1
+        term_col = 0
+    elif c == "\b":
+        if term_col > 0:
+            term_col -= 1
+            vga_buffer[term_row][term_col] = " "
+    else:
+        if term_row < VGA_HEIGHT and term_col < VGA_WIDTH:
+            vga_buffer[term_row][term_col] = c
+            # rainbow color by row
+            color = pygame.Color(0)
+            color.hsva = (term_row*15 % 360, 100, 100, 100)
+            vga_color[term_row][term_col] = color
+            term_col += 1
+    if term_row >= VGA_HEIGHT:
+        vga_buffer.pop(0)
+        vga_buffer.append([" "]*VGA_WIDTH)
+        vga_color.pop(0)
+        vga_color.append([(255,255,255)]*VGA_WIDTH)
+        term_row = VGA_HEIGHT-1
+    render_vga()
 
-# ------------------ BIOS Interrupts ------------------
-def int_0x10():
-    # Only simple text output
-    ah = (regs["AX"] >> 8) & 0xFF
-    al = regs["AX"] & 0xFF
-    if ah == 0x0E:
-        # Teletype output
-        print(chr(al), end="", flush=True)
+def terminal_write(s):
+    for ch in s:
+        terminal_putchar(ch)
 
-def int_0x13():
-    # Only read sectors from floppy (simple)
-    drive = regs["DX"] & 0xFF
-    head = (regs["DX"] >> 8) & 0xFF
-    sector = regs["CX"] & 0xFF
-    cyl = (regs["CX"] >> 8) & 0xFF
-    num = regs["AX"] & 0xFF
-    addr = regs["BX"]
-    # naive: just copy from floppy image
-    start = (sector-1 + cyl*18 + head*18*2) * 512
-    memory[addr:addr+num*512] = floppy[start:start+num*512]
+def terminal_clear():
+    global vga_buffer, vga_color, term_row, term_col
+    vga_buffer = [[" "]*VGA_WIDTH for _ in range(VGA_HEIGHT)]
+    vga_color = [[(255,255,255)]*VGA_WIDTH for _ in range(VGA_HEIGHT)]
+    term_row, term_col = 0, 0
+    render_vga()
+    terminal_write("Screen cleared! Rainbow magic!\n")
 
-# ------------------ Minimal CPU loop ------------------
-def run():
-    eip = regs["EIP"]
-    steps = 0
-    while True:
-        opcode = memory[eip]
-        # For now, we only support CLI (0xFA) and HLT (0xF4)
-        if opcode == 0xFA:  # CLI
-            # Disable interrupts (no-op)
-            eip += 1
-        elif opcode == 0xF4:  # HLT
-            print("\nCPU halted.")
-            break
+# ----------------- Kernel State -----------------
+shell_input = ""
+uptime_ticks = 0
+tasks = [{"id": i+1, "name": f"T{i+1}"} for i in range(5)]
+current_task_index = 0
+
+# ----------------- Task Scheduler -----------------
+def schedule():
+    global current_task_index
+    current_task_index = (current_task_index + 1) % len(tasks)
+    terminal_write(f"\nSwitching to task: {tasks[current_task_index]['name']}\n")
+
+# ----------------- Timer -----------------
+def timer_tick():
+    global uptime_ticks
+    uptime_ticks += 1
+    if uptime_ticks % 5 == 0:
+        terminal_write(f"\nTimer tick: {uptime_ticks}\n")
+
+# ----------------- Shell -----------------
+def shell_handle_char(c):
+    global shell_input
+    if c == "\r":
+        terminal_putchar("\n")
+        if shell_input == "help":
+            terminal_write("Commands: help, echo, repeat, clear, uptime, date, tasks, ls, cat, echoenv\n")
+        elif shell_input.startswith("echo "):
+            terminal_write(shell_input[5:])
+        elif shell_input.startswith("repeat "):
+            parts = shell_input.split(" ", 2)
+            if len(parts) == 3 and parts[1].isdigit():
+                for _ in range(int(parts[1])):
+                    terminal_write(parts[2] + "\n")
+        elif shell_input == "clear":
+            terminal_clear()
+        elif shell_input == "uptime":
+            terminal_write(f"Uptime ticks: {uptime_ticks}\n")
+        elif shell_input == "date":
+            terminal_write("Date: 2025-08-27\n")
+        elif shell_input == "tasks":
+            terminal_write("Tasks:\n")
+            for t in tasks:
+                terminal_write(f"- {t['name']}\n")
+        elif shell_input == "ls":
+            terminal_write("Files: file1.txt file2.txt file3.log\n")
+        elif shell_input.startswith("cat "):
+            terminal_write("File contents: Hello World!\n")
+        elif shell_input == "echoenv":
+            terminal_write("ENV=TinyBox-OS v5.2\n")
         else:
-            print(f"Unsupported opcode {opcode:02X} at {eip:05X}")
-            break
-        steps += 1
-        if steps > 1000:
-            print("Stopping after 1000 steps to avoid infinite loop")
-            break
+            terminal_write("Unknown command. Try help.\n")
+        shell_input = ""
+        terminal_write("> ")
+    elif c == "\b":
+        shell_input = shell_input[:-1]
+        terminal_putchar("\b")
+    else:
+        shell_input += c
+        terminal_putchar(c)
+
+# ----------------- Background Tasks -----------------
+def background_loop():
+    while True:
+        schedule()
+        timer_tick()
+        time.sleep(1)
+
+# ----------------- Main Loop -----------------
+def main_loop():
+    terminal_clear()
+    terminal_write("=== TinyBox-OS v5.2 Loaded ===\n> ")
+    threading.Thread(target=background_loop, daemon=True).start()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_BACKSPACE:
+                    shell_handle_char("\b")
+                elif event.key == pygame.K_RETURN:
+                    shell_handle_char("\r")
+                elif event.unicode:
+                    shell_handle_char(event.unicode)
+        clock.tick(60)
 
 if __name__ == "__main__":
-    run()
+    main_loop()
