@@ -1,3 +1,4 @@
+Fun fact: i am THE creator of TinyBox OS, i can confirm by going onto Intiha420
 # TinyBoxX
 
 A modified version of TinyBox OS, now even tinier — 100+ lines of kernel magic, woohoo! 🎉
@@ -46,15 +47,15 @@ qemu-system-i386 -fda tinyboxos.img
 Because it’s a tiny OS running in my emulator!
 It has fully lost its original motto from running in Bochs, but hey — it’s still tiny, still fun. 😎
 
-What Does It Use?
+# What Does It Use?
 
 93% C → Kernel, shell, task scheduler, VGA driver, timer, syscalls
 
 6% Assembly → Bootloader, kernel stub, low-level setup
 
-The kernel itself is ~450 LOC after optimization, with all TinyBoxX features intact.
+The kernel itself is ~150 or less LOC after optimization, with all TinyBoxX features intact.
 
-Features
+# Features
 
 VGA Terminal: Colors, scrolling, and character output
 
