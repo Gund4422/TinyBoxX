@@ -7,7 +7,7 @@ Bootloader: nasm -f bin boot.s -o boot.bin
 
 Kernel_Stub: nasm -f bin kernel_stub.s -o kernel_stub.bin
 
-Kernel: tcc -m32 -ffreestanding -nostdlib -c kernel.c -o kernel.obj
+Kernel: tcc -m32 -ffreestanding -c kernel.c -o kernel.obj
 
 Combine Stub and kernel: copy /b kernel_stub.bin+kernel.obj kernel.bin
 
