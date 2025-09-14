@@ -25,11 +25,11 @@ copy /b kernel_stub.bin+kernel.obj kernel.bin
 :: Combine bootloader and kernel into final image
 copy /b boot.bin+kernel.bin tinyboxos.img
 
-Build Steps (Linux/macOS)
-nasm -f bin boot.s -o boot.bin
-nasm -f bin kernel_stub.s -o kernel_stub.bin
-tcc -m32 -ffreestanding -c kernel.c -o kernel.obj
-cat boot.bin kernel_stub.bin kernel.obj > tinyboxos.img
+Build Steps (Linux/macOS) |
+nasm -f bin boot.s -o boot.bin | 
+nasm -f bin kernel_stub.s -o kernel_stub.bin |
+tcc -m32 -ffreestanding -c kernel.c -o kernel.obj | 
+cat boot.bin kernel_stub.bin kernel.obj > tinyboxos.img | 
 
 # How to Run
 
