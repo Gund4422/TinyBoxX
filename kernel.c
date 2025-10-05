@@ -1,9 +1,3 @@
-/* ========================================================= */
-/* TinyBox-OS v5.2 Refactored         */
-/* ~450 LOC                   */
-/* Features: VGA, Keyboard, Shell, Tasks, Syscalls, Timer   */
-/* ========================================================= */
-
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -115,3 +109,4 @@ void kernel_main(){
         for(volatile int i=0;i<100000;i++);
     }
 }
+
